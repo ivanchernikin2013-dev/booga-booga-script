@@ -1,10 +1,6 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v2.1
--- GitHub: https://github.com/ivanchernikin2013-dev/booga-booga-script
--- ============================================================
--- Использование:
---   local Helper = loadstring(game:HttpGet("https://raw.githubusercontent.com/ivanchernikin2013-dev/booga-booga-script/main/help.luau"))()
---   Helper.init(WindUI)
+-- help.luau — Herkle Hub Helper Library v3.0
+-- + Item ESP, FPS Boost, Kill Feed
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -12,22 +8,19 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
 local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "2.1.0"
+Helper.Version = "3.0.0"
 
 -- ============================================================
--- MODULE REFERENCES
+-- MODULES
 -- ============================================================
 local packets
-pcall(function()
-    packets = require(rs.Modules.Packets)
-end)
+pcall(function() packets = require(rs.Modules.Packets) end)
 Helper.packets = packets
 
 local Clock
@@ -48,29 +41,22 @@ local _windUI = nil
 function Helper.init(windUI) _windUI = windUI end
 
 -- ============================================================
--- CLEANUP SYSTEM
+-- CLEANUP
 -- ============================================================
 Helper._connections = {}
 Helper._cleanupFuncs = {}
-
 function Helper.trackConnection(conn)
     if conn then table.insert(Helper._connections, conn) end
     return conn
 end
-
-function Helper.registerCleanup(fn)
-    table.insert(Helper._cleanupFuncs, fn)
-end
-
+function Helper.registerCleanup(fn) table.insert(Helper._cleanupFuncs, fn) end
 function Helper.runCleanup()
-    for _, conn in ipairs(Helper._connections) do
-        pcall(function() conn:Disconnect() end)
-    end
+    for _, conn in ipairs(Helper._connections) do pcall(function() conn:Disconnect() end) end
     Helper._connections = {}
     for _, fn in ipairs(Helper._cleanupFuncs) do pcall(fn) end
     Helper._cleanupFuncs = {}
     for _, gui in ipairs(CoreGui:GetChildren()) do
-        if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") then
+        if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") or gui.Name == "HerkleChatFeed" then
             pcall(function() gui:Destroy() end)
         end
     end
@@ -78,22 +64,18 @@ function Helper.runCleanup()
         local pg = plr:FindFirstChild("PlayerGui")
         if pg then
             for _, gui in ipairs(pg:GetChildren()) do
-                if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") then
-                    gui:Destroy()
-                end
+                if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") then gui:Destroy() end
             end
         end
     end)
-    if Helper.Baritone and Helper.Baritone.Stop then
-        pcall(function() Helper.Baritone.Stop() end)
-    end
+    if Helper.Baritone and Helper.Baritone.Stop then pcall(function() Helper.Baritone.Stop() end) end
+    if Helper.disableFPSBoost then pcall(Helper.disableFPSBoost) end
 end
 
 -- ============================================================
--- HP METHODS
+-- HP
 -- ============================================================
 local _hpLabelCache = nil
-
 function Helper.getHealthValueLabel()
     if _hpLabelCache and _hpLabelCache.Parent then return _hpLabelCache end
     _hpLabelCache = nil
@@ -107,7 +89,6 @@ function Helper.getHealthValueLabel()
     if vl and vl:IsA("TextLabel") then _hpLabelCache = vl; return vl end
     return nil
 end
-
 function Helper.getHP()
     local lbl = Helper.getHealthValueLabel()
     if lbl then
@@ -116,19 +97,16 @@ function Helper.getHP()
     end
     return 0
 end
-
 function Helper.getHPFromHumanoid()
     local c = plr.Character
     local h = c and c:FindFirstChildOfClass("Humanoid")
     return h and h.Health or 0
 end
-
 function Helper.getMaxHP()
     local c = plr.Character
     local h = c and c:FindFirstChildOfClass("Humanoid")
     return h and h.MaxHealth or 100
 end
-
 function Helper.getHPPercent()
     local hp = Helper.getHP()
     local max = Helper.getMaxHP()
@@ -146,7 +124,6 @@ function Helper.getInventoryList()
     local inv = rp and rp:FindFirstChild("Inventory")
     return inv and inv:FindFirstChild("List")
 end
-
 function Helper.findSlotByName(itemName)
     local list = Helper.getInventoryList()
     if not list then return nil end
@@ -157,12 +134,10 @@ function Helper.findSlotByName(itemName)
     end
     return nil
 end
-
 function Helper.getInventorySnapshot()
     local list = Helper.getInventoryList()
     if not list then return {}, {} end
-    local byLayout = {}
-    local byName = {}
+    local byLayout, byName = {}, {}
     for _, child in ipairs(list:GetChildren()) do
         if child:IsA("GuiObject") then
             byLayout[child.LayoutOrder] = child.Name
@@ -179,12 +154,10 @@ function Helper.getRoot()
     local c = plr.Character
     return c and c:FindFirstChild("HumanoidRootPart")
 end
-
 function Helper.getHumanoid()
     local c = plr.Character
     return c and c:FindFirstChildOfClass("Humanoid")
 end
-
 function Helper.getRootPart(inst)
     if not inst or not inst:IsA("Model") then return nil end
     return inst.PrimaryPart
@@ -195,7 +168,6 @@ function Helper.getRootPart(inst)
         or inst:FindFirstChild("ENTITY_HITBOX")
         or inst:FindFirstChildWhichIsA("BasePart")
 end
-
 function Helper.findEntityID(obj)
     if not obj then return nil end
     local eid = obj:GetAttribute("EntityID")
@@ -228,101 +200,460 @@ function Helper.notify(title, content, duration)
 end
 
 -- ============================================================
--- THEMES (116 тем) — ключ = отображаемое имя, значение = hex или builtin
+-- THEMES (built-in WindUI)
 -- ============================================================
-Helper.THEMES = {
-    -- Built-in WindUI themes
-    ["Dark"]="Dark",["Light"]="Light",["Rose"]="Rose",["Plant"]="Plant",
-    ["Red"]="Red",["Indigo"]="Indigo",["Sky"]="Sky",["Violet"]="Violet",
-    ["Amber"]="Amber",["Emerald"]="Emerald",["Midnight"]="Midnight",
-    ["Crimson"]="Crimson",["MonokaiPro"]="Monokai Pro",
-    ["CottonCandy"]="Cotton Candy",["Mellowsi"]="Mellowsi",["Rainbow"]="Rainbow",
+Helper.BUILT_IN_THEMES = {
+    "Dark", "Light", "Rose", "Plant", "Red", "Indigo",
+    "Sky", "Violet", "Amber", "Emerald", "Midnight",
+    "Crimson", "MonokaiPro", "CottonCandy", "Mellowsi", "Rainbow",
+}
+function Helper.applyTheme(themeName)
+    if not _windUI then return false end
+    return pcall(function() _windUI:SetTheme(themeName) end)
+end
 
-    -- NEON
-    ["Neon Pink"]="#FF10F0",["Neon Cyan"]="#00F0FF",["Neon Green"]="#39FF14",
-    ["Neon Orange"]="#FF5F1F",["Neon Yellow"]="#FFFF33",["Neon Purple"]="#BC13FE",
-    ["Cyber Blue"]="#00BFFF",["Cyber Red"]="#FF003C",["Cyber Teal"]="#00FFC8",
-    ["Cyber Lime"]="#CCFF00",
+Helper.QUICK_ACCENTS_1 = {
+    ["Default"] = "#30FF6A", ["Neon Pink"] = "#FF10F0", ["Neon Cyan"] = "#00F0FF",
+    ["Neon Green"] = "#39FF14", ["Cyber Blue"] = "#00BFFF", ["Cyber Red"] = "#FF003C",
+    ["Toxic Green"] = "#AFFF00", ["Sapphire"] = "#0F52BA", ["Amethyst"] = "#9966CC",
+    ["Ruby"] = "#E0115F",
+}
+Helper.QUICK_ACCENTS_2 = {
+    ["Blood Red"] = "#8A0303", ["Hot Pink"] = "#FF69B4", ["Coral"] = "#FF7F50",
+    ["Gold"] = "#FFD700", ["Sunshine"] = "#FFFD37", ["Rose Gold"] = "#B76E79",
+    ["Copper"] = "#B87333", ["Chocolate"] = "#7B3F00", ["Silver"] = "#C0C0C0",
+    ["Galaxy"] = "#5C2E91",
+}
+function Helper.applyAccentColor(colorOrHex)
+    if not _windUI then return false end
+    local color
+    if typeof(colorOrHex) == "Color3" then color = colorOrHex
+    elseif type(colorOrHex) == "string" and colorOrHex:sub(1,1) == "#" then color = Color3.fromHex(colorOrHex)
+    else return false end
+    pcall(function()
+        _windUI.Options.Accent = color
+        _windUI.Options.Button = color
+        _windUI.Options.Toggle = color
+        _windUI.Options.Slider = color
+        _windUI.Options.Dropdown = color
+        _windUI.Options.Tab = color
+        _windUI:SetTheme({
+            Accent = color, Button = color, Toggle = color,
+            Slider = color, Dropdown = color, Tab = color,
+        })
+    end)
+    return true
+end
 
-    -- GREEN
-    ["Toxic Green"]="#AFFF00",["Spring Green"]="#00FF7F",["Mint"]="#98FF98",
-    ["Mint Chocolate"]="#3EB489",["Forest"]="#228B22",["Emerald City"]="#50C878",
-    ["Jade"]="#00A86B",["Olive"]="#808000",["Lime Zest"]="#BFFF00",
-    ["Seafoam"]="#93E9BE",["Kiwi"]="#8EE53F",["Fern"]="#4F7942",
-    ["Pistachio"]="#93C572",["Sage"]="#9CAF88",["Hunter Green"]="#355E3B",
+-- ============================================================
+-- ITEM ESP
+-- ============================================================
+Helper.ITEM_ESP_COLORS = {
+    -- Gems / Diamonds
+    ["Emerald"] = Color3.fromRGB(0, 255, 100),
+    ["Raw Emerald"] = Color3.fromRGB(50, 200, 100),
+    ["Pink Diamond"] = Color3.fromRGB(255, 150, 200),
+    ["Raw Pink Diamond"] = Color3.fromRGB(255, 180, 220),
+    ["Crystal Chunk"] = Color3.fromRGB(180, 230, 255),
+    ["Crystal Lode"] = Color3.fromRGB(150, 220, 255),
+    ["Void Shard"] = Color3.fromRGB(140, 0, 200),
 
-    -- BLUE
-    ["Deep Ocean"]="#0066CC",["Ocean Breeze"]="#4FC3F7",["Aqua Marine"]="#7FFFD4",
-    ["Turquoise"]="#40E0D0",["Sky Blue"]="#87CEEB",["Baby Blue"]="#89CFF0",
-    ["Powder Blue"]="#B0E0E6",["Periwinkle"]="#CCCCFF",["Sapphire"]="#0F52BA",
-    ["Cobalt"]="#0047AB",["Electric Blue"]="#7DF9FF",["Ice Blue"]="#99FFFF",
-    ["Steel Blue"]="#4682B4",["Denim"]="#1560BD",["Azure"]="#007FFF",
+    -- Metals
+    ["Gold"] = Color3.fromRGB(255, 215, 0),
+    ["Raw Gold"] = Color3.fromRGB(230, 190, 40),
+    ["Adurite"] = Color3.fromRGB(255, 50, 50),
+    ["Raw Adurite"] = Color3.fromRGB(220, 70, 70),
+    ["Magnetite"] = Color3.fromRGB(150, 100, 200),
+    ["Raw Magnetite"] = Color3.fromRGB(120, 80, 160),
+    ["Steel"] = Color3.fromRGB(160, 180, 200),
+    ["Steel Mix"] = Color3.fromRGB(140, 160, 180),
+    ["Iron"] = Color3.fromRGB(180, 180, 200),
 
-    -- PURPLE
-    ["Lavender"]="#E6E6FA",["Lilac"]="#C8A2C8",["Orchid"]="#DA70D6",
-    ["Plum"]="#8E4585",["Amethyst"]="#9966CC",["Grape"]="#6F2DA8",
-    ["Violet Dream"]="#7F00FF",["Royal Purple"]="#7851A9",["Indigo Night"]="#4B0082",
-    ["Magenta Punch"]="#FF00AA",
+    -- Rare misc
+    ["Spirit Key"] = Color3.fromRGB(255, 250, 150),
+    ["Obsidian"] = Color3.fromRGB(80, 30, 90),
+    ["Feather Stone"] = Color3.fromRGB(230, 230, 230),
+    ["Essence"] = Color3.fromRGB(255, 100, 255),
+    ["Fire Hide"] = Color3.fromRGB(255, 130, 50),
 
-    -- RED / PINK
-    ["Hot Pink"]="#FF69B4",["Crimson Red"]="#DC143C",["Scarlet"]="#FF2400",
-    ["Cherry Red"]="#D2042D",["Blood Red"]="#8A0303",["Ruby"]="#E0115F",
-    ["Wine"]="#722F37",["Burgundy"]="#800020",["Maroon"]="#800000",
-    ["Rose Quartz"]="#F7CAC9",["Sakura"]="#FFB7C5",["Blossom"]="#FFB2D0",
-    ["Bubblegum"]="#FFC1CC",["Peach Fuzz"]="#FFBE98",["Salmon"]="#FA8072",
-
-    -- ORANGE / YELLOW
-    ["Coral"]="#FF7F50",["Peach"]="#FFCBA4",["Apricot"]="#FBCEB1",
-    ["Tangerine"]="#F28500",["Orange Crush"]="#FF6600",["Pumpkin"]="#FF7518",
-    ["Gold"]="#FFD700",["Honey"]="#F0C040",["Mustard"]="#FFDB58",
-    ["Sunshine"]="#FFFD37",
-
-    -- BROWN / EARTH
-    ["Rose Gold"]="#B76E79",["Copper"]="#B87333",["Bronze"]="#CD7F32",
-    ["Chocolate"]="#7B3F00",["Coffee"]="#6F4E37",["Mocha"]="#967969",
-    ["Taupe"]="#483C32",["Sand"]="#C2B280",["Tan"]="#D2B48C",
-    ["Terracotta"]="#E2725B",
-
-    -- GREY / NEUTRAL
-    ["Slate"]="#708090",["Charcoal"]="#36454F",["Onyx"]="#353839",
-    ["Obsidian"]="#3B3B3B",["Gunmetal"]="#2A3439",["Shadow"]="#1C1C1C",
-    ["Storm"]="#4F666A",["Ash"]="#B2BEB5",["Silver"]="#C0C0C0",
-    ["Platinum"]="#E5E4E2",
-
-    -- SPECIAL
-    ["Cream"]="#FFFDD0",["Ivory"]="#FFFFF0",["Pearl"]="#EAE0C8",
-    ["Champagne"]="#F7E7CE",["Beige"]="#F5F5DC",["Fog"]="#D3D3D3",
-    ["Crystal"]="#A8E6CF",["Aurora"]="#7BDFF2",["Galaxy"]="#5C2E91",
-    ["Sunset"]="#FF6B35",
+    -- Chests / Bags / Pouches
+    ["Pleb Chest"] = Color3.fromRGB(180, 140, 100),
+    ["Crystal Chest"] = Color3.fromRGB(100, 200, 255),
+    ["Essence Chest"] = Color3.fromRGB(200, 100, 255),
+    ["Pink Diamond Bag"] = Color3.fromRGB(255, 100, 150),
+    ["Iron Bag"] = Color3.fromRGB(180, 180, 200),
+    ["Iron Pouch"] = Color3.fromRGB(200, 200, 220),
+    ["Steel Bag"] = Color3.fromRGB(150, 150, 180),
+    ["Steel Pouch"] = Color3.fromRGB(180, 180, 200),
+    ["Hide Bag"] = Color3.fromRGB(150, 100, 50),
+    ["Leaf Pouch"] = Color3.fromRGB(100, 200, 100),
+    ["Crystal Pouch"] = Color3.fromRGB(120, 220, 255),
 }
 
--- Возвращает отсортированный список НАЗВАНИЙ тем (ключей)
-function Helper.getThemeList()
+function Helper.getItemESPList()
     local list = {}
-    for key, _ in pairs(Helper.THEMES) do
-        table.insert(list, key)
+    for name, _ in pairs(Helper.ITEM_ESP_COLORS) do
+        table.insert(list, name)
     end
     table.sort(list)
     return list
 end
 
--- Применяет тему по её названию
-function Helper.applyTheme(displayName)
-    if not _windUI then return false end
-    local value = Helper.THEMES[displayName]
-    if not value then return false end
+-- Настройка Item ESP — event-driven, без лагов
+-- config = { isEnabled = fn, getSelected = fn, getShowDist = fn, getMaxDist = fn }
+function Helper.setupItemESP(config)
+    local itemBillboards = {}
+    local tracked = {}
+
+    local function isSelected(name)
+        if not name then return false end
+        if not Helper.ITEM_ESP_COLORS[name] then return false end
+        local sel = config.getSelected()
+        if not sel or #sel == 0 then return false end
+        return table.find(sel, name) ~= nil
+    end
+
+    local function isItemAlive(model)
+        if not model or not model.Parent then return false end
+        if not model:IsDescendantOf(workspace) then return false end
+        local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+        if not pp or not pp.Parent then return false end
+        return true
+    end
+
+    local function destroyItemESP(model)
+        if itemBillboards[model] then
+            pcall(function() itemBillboards[model]:Destroy() end)
+            itemBillboards[model] = nil
+        end
+        tracked[model] = nil
+    end
+
+    local function createItemESP(model, name)
+        destroyItemESP(model)
+        local basePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+        if not basePart then return end
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "HerkleItemESP"
+        bb.Size = UDim2.new(0, 140, 0, 22)
+        bb.StudsOffset = Vector3.new(0, 3, 0)
+        bb.AlwaysOnTop = true
+        bb.ResetOnSpawn = false
+        local lb = Instance.new("TextLabel")
+        lb.Size = UDim2.new(1, 0, 1, 0)
+        lb.BackgroundTransparency = 1
+        lb.TextColor3 = Helper.ITEM_ESP_COLORS[name] or Color3.fromRGB(255,255,255)
+        lb.TextStrokeTransparency = 0
+        lb.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+        lb.Font = Enum.Font.GothamBold
+        lb.TextSize = 14
+        lb.Text = name
+        lb.Parent = bb
+        bb.Parent = basePart
+        itemBillboards[model] = bb
+        tracked[model] = true
+    end
+
+    local function tryRegister(obj)
+        if not config.isEnabled() then return end
+        if not obj or not obj:IsA("Model") then return end
+        if tracked[obj] then return end
+        if not isSelected(obj.Name) then return end
+        if not isItemAlive(obj) then return end
+        createItemESP(obj, obj.Name)
+    end
+
+    local function clearAll()
+        for m, _ in pairs(itemBillboards) do
+            pcall(function() itemBillboards[m]:Destroy() end)
+        end
+        itemBillboards = {}
+        tracked = {}
+    end
+
+    local function scanAll()
+        -- Ищем везде: Items, DroppedItems и вообще по workspace
+        local containers = {
+            workspace:FindFirstChild("Items"),
+            workspace:FindFirstChild("DroppedItems"),
+            workspace,
+        }
+        for _, container in ipairs(containers) do
+            if container then
+                for _, obj in ipairs(container:GetChildren()) do
+                    if obj:IsA("Model") and isSelected(obj.Name) and isItemAlive(obj) then
+                        createItemESP(obj, obj.Name)
+                    end
+                end
+            end
+        end
+    end
+
+    Helper.trackConnection(workspace.DescendantAdded:Connect(function(desc)
+        if desc:IsA("Model") then task.defer(function() tryRegister(desc) end) end
+    end))
+    Helper.trackConnection(workspace.DescendantRemoving:Connect(function(desc)
+        if desc:IsA("Model") and tracked[desc] then destroyItemESP(desc) end
+    end))
+
+    Helper.trackConnection(RunService.RenderStepped:Connect(function()
+        if not config.isEnabled() then
+            for _, bb in pairs(itemBillboards) do pcall(function() bb.Enabled = false end) end
+            return
+        end
+        local myRoot = Helper.getRoot()
+        if not myRoot then return end
+        local showDist = config.getShowDist and config.getShowDist() or false
+        local maxDist = (config.getMaxDist and config.getMaxDist()) or 500
+        local toRemove = nil
+        for model, bb in pairs(itemBillboards) do
+            if not isItemAlive(model) then
+                if not toRemove then toRemove = {} end
+                toRemove[#toRemove+1] = model
+            else
+                local basePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                if basePart then
+                    local dist = (basePart.Position - myRoot.Position).Magnitude
+                    if dist <= maxDist then
+                        pcall(function()
+                            if bb.Parent ~= basePart then bb.Parent = basePart end
+                            bb.Enabled = true
+                            local lb = bb:FindFirstChildOfClass("TextLabel")
+                            if lb then
+                                local text = model.Name
+                                if showDist then text = text .. " | " .. math.floor(dist) .. "m" end
+                                lb.Text = text
+                                lb.TextColor3 = Helper.ITEM_ESP_COLORS[model.Name] or Color3.fromRGB(255,255,255)
+                            end
+                        end)
+                    else
+                        pcall(function() bb.Enabled = false end)
+                    end
+                end
+            end
+        end
+        if toRemove then
+            for _, m in ipairs(toRemove) do destroyItemESP(m) end
+        end
+    end))
+
+    return { scan = scanAll, clear = clearAll }
+end
+
+-- ============================================================
+-- FPS BOOST
+-- ============================================================
+local _fpsBoostEnabled = false
+local _fpsOrig = {}
+
+function Helper.enableFPSBoost()
+    if _fpsBoostEnabled then return end
+    _fpsBoostEnabled = true
+
+    local L = Lighting
+    local T = workspace.Terrain
+
+    -- Lighting
+    _fpsOrig.GlobalShadows = L.GlobalShadows
+    _fpsOrig.FogEnd = L.FogEnd
+    _fpsOrig.Brightness = L.Brightness
+    _fpsOrig.EnvironmentDiffuseScale = L.EnvironmentDiffuseScale
+    _fpsOrig.EnvironmentSpecularScale = L.EnvironmentSpecularScale
+
+    L.GlobalShadows = false
+    L.FogEnd = 100000
+    L.Brightness = 2
     pcall(function()
-        if value:sub(1, 1) == "#" then
-            local color = Color3.fromHex(value)
-            _windUI:SetTheme({
-                Accent = color, Button = color, Toggle = color,
-                Slider = color, Dropdown = color, Tab = color,
-            })
-        else
-            _windUI:SetTheme(value)
+        L.EnvironmentDiffuseScale = 0
+        L.EnvironmentSpecularScale = 0
+    end)
+
+    -- Post effects / Atmosphere / Clouds
+    _fpsOrig.effects = {}
+    for _, c in ipairs(L:GetChildren()) do
+        if c:IsA("PostEffect") or c:IsA("Atmosphere") or c:IsA("Clouds") then
+            _fpsOrig.effects[c] = c.Parent
+            c.Parent = nil
+        end
+    end
+
+    -- Particles across workspace (ограничимся игроком и видимыми объектами)
+    _fpsOrig.particles = {}
+    for _, d in ipairs(workspace:GetDescendants()) do
+        if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Smoke") or d:IsA("Fire") or d:IsA("Sparkles") then
+            if d.Enabled then
+                _fpsOrig.particles[d] = true
+                d.Enabled = false
+            end
+        end
+    end
+
+    -- Terrain water
+    pcall(function()
+        _fpsOrig.WaterWaveSize = T.WaterWaveSize
+        _fpsOrig.WaterWaveSpeed = T.WaterWaveSpeed
+        _fpsOrig.WaterReflectance = T.WaterReflectance
+        _fpsOrig.WaterTransparency = T.WaterTransparency
+        T.WaterWaveSize = 0
+        T.WaterWaveSpeed = 0
+        T.WaterReflectance = 0
+        T.WaterTransparency = 1
+    end)
+end
+
+function Helper.disableFPSBoost()
+    if not _fpsBoostEnabled then return end
+    _fpsBoostEnabled = false
+
+    local L = Lighting
+    local T = workspace.Terrain
+
+    if _fpsOrig.GlobalShadows ~= nil then L.GlobalShadows = _fpsOrig.GlobalShadows end
+    if _fpsOrig.FogEnd ~= nil then L.FogEnd = _fpsOrig.FogEnd end
+    if _fpsOrig.Brightness ~= nil then L.Brightness = _fpsOrig.Brightness end
+    pcall(function()
+        if _fpsOrig.EnvironmentDiffuseScale ~= nil then L.EnvironmentDiffuseScale = _fpsOrig.EnvironmentDiffuseScale end
+        if _fpsOrig.EnvironmentSpecularScale ~= nil then L.EnvironmentSpecularScale = _fpsOrig.EnvironmentSpecularScale end
+    end)
+
+    if _fpsOrig.effects then
+        for c, parent in pairs(_fpsOrig.effects) do
+            pcall(function() c.Parent = parent or L end)
+        end
+    end
+    if _fpsOrig.particles then
+        for d, _ in pairs(_fpsOrig.particles) do
+            pcall(function() d.Enabled = true end)
+        end
+    end
+
+    pcall(function()
+        if _fpsOrig.WaterWaveSize ~= nil then T.WaterWaveSize = _fpsOrig.WaterWaveSize end
+        if _fpsOrig.WaterWaveSpeed ~= nil then T.WaterWaveSpeed = _fpsOrig.WaterWaveSpeed end
+        if _fpsOrig.WaterReflectance ~= nil then T.WaterReflectance = _fpsOrig.WaterReflectance end
+        if _fpsOrig.WaterTransparency ~= nil then T.WaterTransparency = _fpsOrig.WaterTransparency end
+    end)
+
+    _fpsOrig = {}
+end
+
+function Helper.isFPSBoostEnabled() return _fpsBoostEnabled end
+
+-- ============================================================
+-- KILL FEED
+-- ============================================================
+Helper.KILLFEED_FILE = "herkle_killfeed.txt"
+
+local _killFeedRunning = false
+local _killFeedLog = {}
+local _killFeedOnNew = nil
+
+local function _kfLoad()
+    _killFeedLog = {}
+    if readfile and isfile then
+        pcall(function()
+            if isfile(Helper.KILLFEED_FILE) then
+                local data = readfile(Helper.KILLFEED_FILE)
+                if data and #data > 0 then
+                    for line in data:gmatch("[^\r\n]+") do
+                        table.insert(_killFeedLog, line)
+                    end
+                end
+            end
+        end)
+    end
+    if #_killFeedLog > 500 then
+        local newLog = {}
+        for i = #_killFeedLog - 500 + 1, #_killFeedLog do
+            table.insert(newLog, _killFeedLog[i])
+        end
+        _killFeedLog = newLog
+    end
+end
+
+local function _kfWrite()
+    if writefile then
+        pcall(function()
+            writefile(Helper.KILLFEED_FILE, table.concat(_killFeedLog, "\n"))
+        end)
+    end
+end
+
+function Helper.startKillFeed(getEnabled, onNewLine)
+    _killFeedOnNew = onNewLine
+    if _killFeedRunning then return end
+    _killFeedRunning = true
+    _kfLoad()
+
+    local lastHealth = {}
+    local lastKnown = {}
+
+    task.spawn(function()
+        while _killFeedRunning do
+            if getEnabled() then
+                local playersFolder = workspace:FindFirstChild("Players")
+                if playersFolder then
+                    for _, pChar in ipairs(playersFolder:GetChildren()) do
+                        local h = pChar:FindFirstChildOfClass("Humanoid")
+                        local name = pChar.Name
+                        if h then
+                            local hp = h.Health
+                            local prevHp = lastHealth[name]
+                            if prevHp ~= nil and prevHp > 0 and hp <= 0 then
+                                local t = os.date("%H:%M:%S")
+                                local line = "[" .. t .. "] " .. name .. " died"
+                                table.insert(_killFeedLog, line)
+                                if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
+                                _kfWrite()
+                                if _killFeedOnNew then pcall(_killFeedOnNew, line) end
+                            end
+                            lastHealth[name] = hp
+                            lastKnown[name] = true
+                        else
+                            if lastKnown[name] then
+                                local t = os.date("%H:%M:%S")
+                                local line = "[" .. t .. "] " .. name .. " left / died"
+                                table.insert(_killFeedLog, line)
+                                if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
+                                _kfWrite()
+                                if _killFeedOnNew then pcall(_killFeedOnNew, line) end
+                                lastKnown[name] = nil
+                                lastHealth[name] = nil
+                            end
+                        end
+                    end
+                end
+
+                -- my health
+                local myHum = Helper.getHumanoid()
+                if myHum then
+                    local prevMe = lastHealth["__me"]
+                    if prevMe ~= nil and prevMe > 0 and myHum.Health <= 0 then
+                        local t = os.date("%H:%M:%S")
+                        local line = "[" .. t .. "] YOU died"
+                        table.insert(_killFeedLog, line)
+                        if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
+                        _kfWrite()
+                        if _killFeedOnNew then pcall(_killFeedOnNew, line) end
+                    end
+                    lastHealth["__me"] = myHum.Health
+                end
+            end
+            task.wait(0.5)
         end
     end)
-    return true
+end
+
+function Helper.stopKillFeed()
+    _killFeedRunning = false
+end
+function Helper.getKillFeedLog() return _killFeedLog end
+function Helper.clearKillFeed()
+    _killFeedLog = {}
+    _kfWrite()
+end
+function Helper.getKillFeedText()
+    return table.concat(_killFeedLog, "\n")
 end
 
 -- ============================================================
@@ -344,7 +675,6 @@ Helper.FOOD_PRIORITY = {
     ["Raw Meat"]=200, ["Raw Morsel"]=180, ["Raw Fish"]=180,
     ["Raw Crab"]=180, ["Raw Baracuda"]=180, ["Egg"]=160, ["Cactus Bits"]=100,
 }
-
 function Helper.findBestFoodSlot()
     local list = Helper.getInventoryList()
     if not list then return nil, 0 end
@@ -352,15 +682,11 @@ function Helper.findBestFoodSlot()
     for _, child in ipairs(list:GetChildren()) do
         if child:IsA("ImageLabel") then
             local score = Helper.FOOD_PRIORITY[child.Name]
-            if score and score > bestScore then
-                bestScore = score
-                bestSlot = child
-            end
+            if score and score > bestScore then bestScore = score; bestSlot = child end
         end
     end
     return bestSlot, bestScore
 end
-
 function Helper.eatFood(slot)
     if not slot then return false end
     if packets and packets.UseBagItem and packets.UseBagItem.send then
@@ -371,31 +697,25 @@ function Helper.eatFood(slot)
 end
 
 -- ============================================================
--- STRIKE TARGET
+-- STRIKE
 -- ============================================================
 function Helper.strikeTarget(targetPart)
     if not targetPart or not plr.Character then return end
     local c = plr.Character
     local r = c:FindFirstChild("HumanoidRootPart")
     if not r then return end
-
     local eid = tonumber(targetPart:GetAttribute("EntityID") or
         (targetPart.Parent and targetPart.Parent:GetAttribute("EntityID")))
     local lookDir = (targetPart.Position - r.Position).Unit
     local st = Clock and Clock.getServerTime and Clock.getServerTime(true) or os.clock()
     local swingCFrame = CFrame.new(r.Position, targetPart.Position)
-
     pcall(function()
         local toolMod = rs:FindFirstChild("Game") and rs.Game:FindFirstChild("tool") and require(rs.Game.tool)
-        if toolMod and toolMod.swingTool then
-            toolMod.swingTool()
-        end
+        if toolMod and toolMod.swingTool then toolMod.swingTool() end
     end)
-
     if Helper.RemoteSwingTool then
         pcall(function() Helper.RemoteSwingTool:FireServer(lookDir, { targetPart }) end)
     end
-
     if packets and packets.SwingTool and packets.SwingTool.send and eid then
         pcall(function()
             packets.SwingTool.send({
@@ -408,11 +728,10 @@ function Helper.strikeTarget(targetPart)
 end
 
 -- ============================================================
--- AUTO EQUIP BEST TOOL
+-- AUTO EQUIP
 -- ============================================================
 local _equipTickCounter = 0
 local _lastEquipTicks = {}
-
 function Helper.autoEquipBestTool(targetCategory)
     pcall(function()
         local bag = plr.PlayerGui:FindFirstChild("MainGui") and
@@ -423,23 +742,19 @@ function Helper.autoEquipBestTool(targetCategory)
                 if item:IsA("TextLabel") and item.Name == "ItemName" then
                     local n = item.Text:lower()
                     if targetCategory == "Wood" and (n:find("axe") or n:find("hatchet")) then
-                        Helper.RemoteEquipTool:FireServer(item.Text)
-                        return
+                        Helper.RemoteEquipTool:FireServer(item.Text); return
                     elseif (targetCategory == "Stone" or targetCategory == "Ore" or targetCategory == "Crystal")
                         and (n:find("pick") or n:find("hammer")) then
-                        Helper.RemoteEquipTool:FireServer(item.Text)
-                        return
+                        Helper.RemoteEquipTool:FireServer(item.Text); return
                     elseif (targetCategory == "Combat" or targetCategory == "Critter" or targetCategory == "God")
                         and (n:find("sword") or n:find("blade") or n:find("club") or n:find("spear")) then
-                        Helper.RemoteEquipTool:FireServer(item.Text)
-                        return
+                        Helper.RemoteEquipTool:FireServer(item.Text); return
                     end
                 end
             end
         end
     end)
 end
-
 function Helper.autoEquipThrottled(category)
     local last = _lastEquipTicks[category] or -999
     if _equipTickCounter - last >= 5 then
@@ -447,20 +762,13 @@ function Helper.autoEquipThrottled(category)
         _lastEquipTicks[category] = _equipTickCounter
     end
 end
-
-function Helper.tickEquipCounter()
-    _equipTickCounter = _equipTickCounter + 1
-end
-
-function Helper.resetEquipThrottle(category)
-    _lastEquipTicks[category] = -999
-end
+function Helper.tickEquipCounter() _equipTickCounter = _equipTickCounter + 1 end
+function Helper.resetEquipThrottle(category) _lastEquipTicks[category] = -999 end
 
 -- ============================================================
--- VELOCITY TRACKER
+-- VELOCITY
 -- ============================================================
 Helper.trackedVelocities = {}
-
 function Helper.updateVelocityTracker(dt)
     if not dt or dt <= 0 then return end
     local tracked = Helper.trackedVelocities
@@ -474,8 +782,7 @@ function Helper.updateVelocityTracker(dt)
                 local rec = tracked[p]
                 if rec then
                     local instVel = (curPos - rec.pos) / dt
-                    rec.vel = rec.vel:Lerp(instVel, 0.45)
-                    rec.pos = curPos
+                    rec.vel = rec.vel:Lerp(instVel, 0.45); rec.pos = curPos
                 else
                     tracked[p] = { pos = curPos, vel = p.AssemblyLinearVelocity or Vector3.zero }
                 end
@@ -491,8 +798,7 @@ function Helper.updateVelocityTracker(dt)
                 local rec = tracked[p]
                 if rec then
                     local instVel = (curPos - rec.pos) / dt
-                    rec.vel = rec.vel:Lerp(instVel, 0.45)
-                    rec.pos = curPos
+                    rec.vel = rec.vel:Lerp(instVel, 0.45); rec.pos = curPos
                 else
                     tracked[p] = { pos = curPos, vel = p.AssemblyLinearVelocity or Vector3.zero }
                 end
@@ -502,7 +808,7 @@ function Helper.updateVelocityTracker(dt)
 end
 
 -- ============================================================
--- SMART GOD DETECTION
+-- GOD DETECTION
 -- ============================================================
 Helper.KNOWN_GOD_NAMES = {
     ["Old God"]=true, ["Miserable God"]=true, ["Hateful God"]=true,
@@ -511,24 +817,15 @@ Helper.KNOWN_GOD_NAMES = {
     ["Magical God"]=true, ["Infinity God"]=true, ["Strange God"]=true,
     ["Ancient God"]=true, ["Sleeping God"]=true,
 }
-
 Helper.GOD_COLORS = {
-    ["Old God"]=Color3.fromRGB(139,69,19),
-    ["Miserable God"]=Color3.fromRGB(100,100,150),
-    ["Hateful God"]=Color3.fromRGB(255,0,0),
-    ["Wealthy God"]=Color3.fromRGB(255,215,0),
-    ["Lonely God"]=Color3.fromRGB(200,200,255),
-    ["Unborn God"]=Color3.fromRGB(150,200,150),
-    ["Forgotten God"]=Color3.fromRGB(100,50,100),
-    ["Odd God"]=Color3.fromRGB(100,255,100),
-    ["Dark God"]=Color3.fromRGB(80,0,80),
-    ["Magical God"]=Color3.fromRGB(200,100,255),
-    ["Infinity God"]=Color3.fromRGB(120,0,255),
-    ["Strange God"]=Color3.fromRGB(0,255,200),
-    ["Ancient God"]=Color3.fromRGB(200,170,80),
-    ["Sleeping God"]=Color3.fromRGB(100,150,220),
+    ["Old God"]=Color3.fromRGB(139,69,19), ["Miserable God"]=Color3.fromRGB(100,100,150),
+    ["Hateful God"]=Color3.fromRGB(255,0,0), ["Wealthy God"]=Color3.fromRGB(255,215,0),
+    ["Lonely God"]=Color3.fromRGB(200,200,255), ["Unborn God"]=Color3.fromRGB(150,200,150),
+    ["Forgotten God"]=Color3.fromRGB(100,50,100), ["Odd God"]=Color3.fromRGB(100,255,100),
+    ["Dark God"]=Color3.fromRGB(80,0,80), ["Magical God"]=Color3.fromRGB(200,100,255),
+    ["Infinity God"]=Color3.fromRGB(120,0,255), ["Strange God"]=Color3.fromRGB(0,255,200),
+    ["Ancient God"]=Color3.fromRGB(200,170,80), ["Sleeping God"]=Color3.fromRGB(100,150,220),
 }
-
 function Helper.isGodModel(obj)
     if not obj or not obj:IsA("Model") then return false end
     local name = obj.Name
@@ -541,7 +838,6 @@ function Helper.isGodModel(obj)
     end
     return false
 end
-
 function Helper.findGodTargets(range)
     local results = {}
     local myRoot = Helper.getRoot()
@@ -555,10 +851,8 @@ function Helper.findGodTargets(range)
                 if not h or h.Health > 0 then
                     local dist = (base.Position - myRoot.Position).Magnitude
                     if dist <= maxRange then
-                        results[#results+1] = {
-                            part = base, model = obj, dist = dist,
-                            health = h and h.Health or math.huge,
-                        }
+                        results[#results+1] = { part = base, model = obj, dist = dist,
+                            health = h and h.Health or math.huge }
                     end
                 end
             end
@@ -568,7 +862,7 @@ function Helper.findGodTargets(range)
 end
 
 -- ============================================================
--- RESOURCE HELPERS
+-- RESOURCES
 -- ============================================================
 function Helper.forEachResource(callback)
     local resFolder = Workspace:FindFirstChild("Resources")
@@ -583,7 +877,6 @@ function Helper.forEachResource(callback)
         end
     end
 end
-
 function Helper.isResourceAccessible(rootPos, targetPos, targetObj)
     local yDiff = math.abs(targetPos.Y - rootPos.Y)
     if yDiff > 14 then return false end
@@ -599,7 +892,7 @@ function Helper.isResourceAccessible(rootPos, targetPos, targetObj)
 end
 
 -- ============================================================
--- BOW AIMBOT HELPERS
+-- BOW AIMBOT
 -- ============================================================
 function Helper.isBowEquipped()
     local c = plr.Character
@@ -607,14 +900,11 @@ function Helper.isBowEquipped()
     if tools then
         for _, t in ipairs(tools:GetChildren()) do
             local n = t.Name:lower()
-            if n:find("bow") or n:find("crossbow") or n:find("sling") then
-                return true
-            end
+            if n:find("bow") or n:find("crossbow") or n:find("sling") then return true end
         end
     end
     return false
 end
-
 function Helper.getEquippedWeaponSpeed()
     local c = plr.Character
     local tools = c and c:FindFirstChild("Tools")
@@ -630,46 +920,33 @@ function Helper.getEquippedWeaponSpeed()
     end
     return 350
 end
-
 function Helper.computeAimPoint(targetPart, isCritter)
     local c = plr.Character
     local Camera = Workspace.CurrentCamera
     local launchOrigin = c and (c:GetPivot() * CFrame.new(1.4, -0.4, -3)).Position or
         (Camera and Camera.CFrame.Position or Vector3.zero)
     local targetPos = targetPart.Position
-
-    if not isCritter and targetPart.Name == "Head" then
-        targetPos = targetPart.Position
-    elseif not isCritter then
-        targetPos = targetPart.Position + Vector3.new(0, 1.4, 0)
-    else
-        targetPos = targetPart.Position + Vector3.new(0, math.min(targetPart.Size.Y * 0.2, 0.4), 0)
-    end
-
+    if not isCritter and targetPart.Name == "Head" then targetPos = targetPart.Position
+    elseif not isCritter then targetPos = targetPart.Position + Vector3.new(0, 1.4, 0)
+    else targetPos = targetPart.Position + Vector3.new(0, math.min(targetPart.Size.Y * 0.2, 0.4), 0) end
     local speed = Helper.getEquippedWeaponSpeed()
     local diff = targetPos - launchOrigin
     local dist = diff.Magnitude
     local flightTime = dist / speed
-
     local targetVel = Vector3.zero
     local tracked = Helper.trackedVelocities
     local rec = tracked[targetPart] or
         (targetPart.Parent and (tracked[targetPart.Parent:FindFirstChild("HumanoidRootPart")] or
         tracked[targetPart.Parent:FindFirstChild("ENTITY_HITBOX")]))
-    if rec and rec.vel and rec.vel.Magnitude > 0.3 then
-        targetVel = rec.vel
+    if rec and rec.vel and rec.vel.Magnitude > 0.3 then targetVel = rec.vel
     elseif targetPart.AssemblyLinearVelocity and targetPart.AssemblyLinearVelocity.Magnitude > 0.3 then
-        targetVel = targetPart.AssemblyLinearVelocity
-    end
-
+        targetVel = targetPart.AssemblyLinearVelocity end
     local predictedTargetPos = targetPos + (targetVel * flightTime)
     local delta = predictedTargetPos - launchOrigin
     local g = 122.2
     local vLaunch = (delta + Vector3.new(0, 0.5 * g * (flightTime ^ 2), 0)) / flightTime
-
     return launchOrigin + (vLaunch.Unit * 1000)
 end
-
 function Helper.getAimbotTarget(cfgTarget, cfgPart, cfgRange, isFriendFn)
     local Camera = Workspace.CurrentCamera
     local UIS = game:GetService("UserInputService")
@@ -680,7 +957,6 @@ function Helper.getAimbotTarget(cfgTarget, cfgPart, cfgRange, isFriendFn)
     local c = plr.Character
     local r = c and c:FindFirstChild("HumanoidRootPart")
     local maxWorldRange = cfgRange or 300
-
     if cfgTarget == "Players" or cfgTarget == "Both" then
         local playersFolder = Workspace:FindFirstChild("Players")
         if playersFolder then
@@ -708,7 +984,6 @@ function Helper.getAimbotTarget(cfgTarget, cfgPart, cfgRange, isFriendFn)
             end
         end
     end
-
     if not nearestPart and (cfgTarget == "Critters" or cfgTarget == "Both") then
         local crittersFolder = Workspace:FindFirstChild("Critters") or Workspace:FindFirstChild("HumanoidCritters")
         if crittersFolder then
@@ -737,10 +1012,118 @@ function Helper.getAimbotTarget(cfgTarget, cfgPart, cfgRange, isFriendFn)
 end
 
 -- ============================================================
+-- FULLBRIGHT
+-- ============================================================
+local _fbOriginal = nil
+function Helper.enableFullbright()
+    if not _fbOriginal then
+        _fbOriginal = {
+            Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
+            Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime,
+            GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd,
+            FogStart = Lighting.FogStart, FogColor = Lighting.FogColor,
+        }
+    end
+    Lighting.Ambient = Color3.fromRGB(200,200,200)
+    Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
+    Lighting.Brightness = 3
+    Lighting.ClockTime = 14
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 100000
+    Lighting.FogStart = 0
+    Lighting.FogColor = Color3.fromRGB(200,200,200)
+    for _, c in ipairs(Lighting:GetChildren()) do
+        if c:IsA("Atmosphere") then c.Parent = nil end
+    end
+end
+function Helper.disableFullbright()
+    if not _fbOriginal then return end
+    Lighting.Ambient = _fbOriginal.Ambient
+    Lighting.OutdoorAmbient = _fbOriginal.OutdoorAmbient
+    Lighting.Brightness = _fbOriginal.Brightness
+    Lighting.ClockTime = _fbOriginal.ClockTime
+    Lighting.GlobalShadows = _fbOriginal.GlobalShadows
+    Lighting.FogEnd = _fbOriginal.FogEnd
+    Lighting.FogStart = _fbOriginal.FogStart
+    Lighting.FogColor = _fbOriginal.FogColor
+    _fbOriginal = nil
+end
+
+-- ============================================================
+-- AUTO HEAL (Bloodfruit only)
+-- ============================================================
+function Helper.startAutoHeal(getState)
+    local eating = false
+    local S = getState
+    task.spawn(function()
+        while true do
+            if S().autoheal then
+                local hp = Helper.getHP()
+                local maxHP = Helper.getMaxHP()
+                if hp and maxHP > 0 then
+                    local hpPct = (hp / maxHP) * 100
+                    if hpPct < S().autoheal_eat_below then eating = true end
+                    if hpPct >= S().autoheal_eat_until then eating = false end
+                    if eating then
+                        for i = 1, S().autoheal_burst_size do
+                            local curPct = Helper.getHPPercent()
+                            if curPct >= S().autoheal_eat_until then eating = false; break end
+                            local list = Helper.getInventoryList()
+                            local bloodSlot = nil
+                            if list then
+                                for _, child in ipairs(list:GetChildren()) do
+                                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                                        bloodSlot = child; break
+                                    end
+                                end
+                            end
+                            if not bloodSlot then break end
+                            Helper.eatFood(bloodSlot)
+                            task.wait(S().autoheal_eat_delay)
+                        end
+                        task.wait(S().autoheal_burst_wait)
+                    else
+                        task.wait(0.1)
+                    end
+                else
+                    task.wait(0.2)
+                end
+            else
+                task.wait(0.2)
+                eating = false
+            end
+        end
+    end)
+end
+
+-- ============================================================
+-- DROP / PICKUP
+-- ============================================================
+function Helper.dropItem(itemName)
+    if not itemName or itemName == "" then return false end
+    local list = Helper.getInventoryList()
+    if not list then return false end
+    for _, child in ipairs(list:GetChildren()) do
+        if child:IsA("ImageLabel") and child.Name == itemName then
+            if packets and packets.DropBagItem and packets.DropBagItem.send then
+                pcall(function() packets.DropBagItem.send(child.LayoutOrder) end)
+                return true
+            end
+            return false
+        end
+    end
+    return false
+end
+function Helper.pickup(entityid)
+    if packets and packets.Pickup and packets.Pickup.send then
+        packets.Pickup.send(entityid)
+    end
+end
+
+-- ============================================================
 -- BARITONE
 -- ============================================================
 Helper.Baritone = { Version = "1.4.0" }
-
 local _baritone = Helper.Baritone
 local BC = {
     walkSpeed = 14, searchRange = 250, avoidWater = false, avoidCliffs = true,
@@ -762,7 +1145,6 @@ local BState = {
     lastTargetSearch=0, lastDirUpdate=0, escapeUntil=0, wanderDir=nil,
     wanderChangeAt=0, stopCallbacks={}, moveFailCount=0, lastLogTime=0,
 }
-
 local function bMakeParams()
     local p = RaycastParams.new()
     p.FilterType = Enum.RaycastFilterType.Exclude
@@ -925,12 +1307,9 @@ local function bTick()
     if not BC.enabled then return end
     if _baritone._resetWander then
         _baritone._resetWander = false
-        BState.currentTarget = nil
-        BState.currentDir = nil
-        BState.wanderDir = nil
-        BState.wanderChangeAt = 0
-        BState.lastPos = nil
-        BState.moveFailCount = 0
+        BState.currentTarget = nil; BState.currentDir = nil
+        BState.wanderDir = nil; BState.wanderChangeAt = 0
+        BState.lastPos = nil; BState.moveFailCount = 0
     end
     local myRoot = Helper.getRoot()
     local humanoid = Helper.getHumanoid()
@@ -994,7 +1373,6 @@ local function bTick()
         end
     else bStop(humanoid, myRoot) end
 end
-
 function _baritone.Start()
     if BState.running then return end
     BState.running = true
@@ -1014,7 +1392,6 @@ function _baritone.Start()
         bClearVel(r)
     end)
 end
-
 function _baritone.Stop()
     if not BState.running then return end
     BState.running = false
@@ -1027,131 +1404,9 @@ function _baritone.Stop()
     if h then h:Move(Vector3.zero, false) end
     bClearVel(r)
 end
-
 function _baritone.IsRunning() return BState.running end
 function _baritone.Set(k, v) if BC[k] == nil then return false end BC[k] = v return true end
 function _baritone.Get(k) return BC[k] end
 function _baritone.GetCurrentTarget() return BState.currentTarget end
-
--- ============================================================
--- FULLBRIGHT
--- ============================================================
-local _fbOriginal = nil
-
-function Helper.enableFullbright()
-    if not _fbOriginal then
-        _fbOriginal = {
-            Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
-            Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime,
-            GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd,
-            FogStart = Lighting.FogStart, FogColor = Lighting.FogColor,
-        }
-    end
-    Lighting.Ambient = Color3.fromRGB(200,200,200)
-    Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
-    Lighting.Brightness = 3
-    Lighting.ClockTime = 14
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 100000
-    Lighting.FogStart = 0
-    Lighting.FogColor = Color3.fromRGB(200,200,200)
-    for _, c in ipairs(Lighting:GetChildren()) do
-        if c:IsA("Atmosphere") then c.Parent = nil end
-    end
-end
-
-function Helper.disableFullbright()
-    if not _fbOriginal then return end
-    Lighting.Ambient = _fbOriginal.Ambient
-    Lighting.OutdoorAmbient = _fbOriginal.OutdoorAmbient
-    Lighting.Brightness = _fbOriginal.Brightness
-    Lighting.ClockTime = _fbOriginal.ClockTime
-    Lighting.GlobalShadows = _fbOriginal.GlobalShadows
-    Lighting.FogEnd = _fbOriginal.FogEnd
-    Lighting.FogStart = _fbOriginal.FogStart
-    Lighting.FogColor = _fbOriginal.FogColor
-    _fbOriginal = nil
-end
-
--- ============================================================
--- AUTO HEAL BURST
--- ============================================================
-function Helper.startAutoHeal(getState)
-    local eating = false
-    local S = getState
-    task.spawn(function()
-        while true do
-            if S().autoheal then
-                local hp = Helper.getHP()
-                local maxHP = Helper.getMaxHP()
-                if hp and maxHP > 0 then
-                    local hpPct = (hp / maxHP) * 100
-                    if hpPct < S().autoheal_eat_below then eating = true end
-                    if hpPct >= S().autoheal_eat_until then eating = false end
-
-                    if eating then
-                        for i = 1, S().autoheal_burst_size do
-                            local curPct = Helper.getHPPercent()
-                            if curPct >= S().autoheal_eat_until then
-                                eating = false
-                                break
-                            end
-                            -- Ест ТОЛЬКО Bloodfruit
-                            local list = Helper.getInventoryList()
-                            local bloodSlot = nil
-                            if list then
-                                for _, child in ipairs(list:GetChildren()) do
-                                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
-                                        bloodSlot = child
-                                        break
-                                    end
-                                end
-                            end
-                            if not bloodSlot then break end
-                            Helper.eatFood(bloodSlot)
-                            task.wait(S().autoheal_eat_delay)
-                        end
-                        task.wait(S().autoheal_burst_wait)
-                    else
-                        task.wait(0.1)
-                    end
-                else
-                    task.wait(0.2)
-                end
-            else
-                task.wait(0.2)
-                eating = false
-            end
-        end
-    end)
-end
-
--- ============================================================
--- AUTO DROP
--- ============================================================
-function Helper.dropItem(itemName)
-    if not itemName or itemName == "" then return false end
-    local list = Helper.getInventoryList()
-    if not list then return false end
-    for _, child in ipairs(list:GetChildren()) do
-        if child:IsA("ImageLabel") and child.Name == itemName then
-            if packets and packets.DropBagItem and packets.DropBagItem.send then
-                pcall(function() packets.DropBagItem.send(child.LayoutOrder) end)
-                return true
-            end
-            return false
-        end
-    end
-    return false
-end
-
--- ============================================================
--- PICKUP
--- ============================================================
-function Helper.pickup(entityid)
-    if packets and packets.Pickup and packets.Pickup.send then
-        packets.Pickup.send(entityid)
-    end
-end
 
 return Helper
