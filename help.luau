@@ -1,6 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v3.0
--- + Item ESP, FPS Boost, Kill Feed
+-- help.luau — Herkle Hub Helper Library v3.1
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -14,7 +13,7 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "3.0.0"
+Helper.Version = "3.1.0"
 
 -- ============================================================
 -- MODULES
@@ -56,7 +55,7 @@ function Helper.runCleanup()
     for _, fn in ipairs(Helper._cleanupFuncs) do pcall(fn) end
     Helper._cleanupFuncs = {}
     for _, gui in ipairs(CoreGui:GetChildren()) do
-        if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") or gui.Name == "HerkleChatFeed" then
+        if gui.Name == "WindUI" or gui:GetAttribute("HerkleHub") then
             pcall(function() gui:Destroy() end)
         end
     end
@@ -246,201 +245,6 @@ function Helper.applyAccentColor(colorOrHex)
 end
 
 -- ============================================================
--- ITEM ESP
--- ============================================================
-Helper.ITEM_ESP_COLORS = {
-    -- Gems / Diamonds
-    ["Emerald"] = Color3.fromRGB(0, 255, 100),
-    ["Raw Emerald"] = Color3.fromRGB(50, 200, 100),
-    ["Pink Diamond"] = Color3.fromRGB(255, 150, 200),
-    ["Raw Pink Diamond"] = Color3.fromRGB(255, 180, 220),
-    ["Crystal Chunk"] = Color3.fromRGB(180, 230, 255),
-    ["Crystal Lode"] = Color3.fromRGB(150, 220, 255),
-    ["Void Shard"] = Color3.fromRGB(140, 0, 200),
-
-    -- Metals
-    ["Gold"] = Color3.fromRGB(255, 215, 0),
-    ["Raw Gold"] = Color3.fromRGB(230, 190, 40),
-    ["Adurite"] = Color3.fromRGB(255, 50, 50),
-    ["Raw Adurite"] = Color3.fromRGB(220, 70, 70),
-    ["Magnetite"] = Color3.fromRGB(150, 100, 200),
-    ["Raw Magnetite"] = Color3.fromRGB(120, 80, 160),
-    ["Steel"] = Color3.fromRGB(160, 180, 200),
-    ["Steel Mix"] = Color3.fromRGB(140, 160, 180),
-    ["Iron"] = Color3.fromRGB(180, 180, 200),
-
-    -- Rare misc
-    ["Spirit Key"] = Color3.fromRGB(255, 250, 150),
-    ["Obsidian"] = Color3.fromRGB(80, 30, 90),
-    ["Feather Stone"] = Color3.fromRGB(230, 230, 230),
-    ["Essence"] = Color3.fromRGB(255, 100, 255),
-    ["Fire Hide"] = Color3.fromRGB(255, 130, 50),
-
-    -- Chests / Bags / Pouches
-    ["Pleb Chest"] = Color3.fromRGB(180, 140, 100),
-    ["Crystal Chest"] = Color3.fromRGB(100, 200, 255),
-    ["Essence Chest"] = Color3.fromRGB(200, 100, 255),
-    ["Pink Diamond Bag"] = Color3.fromRGB(255, 100, 150),
-    ["Iron Bag"] = Color3.fromRGB(180, 180, 200),
-    ["Iron Pouch"] = Color3.fromRGB(200, 200, 220),
-    ["Steel Bag"] = Color3.fromRGB(150, 150, 180),
-    ["Steel Pouch"] = Color3.fromRGB(180, 180, 200),
-    ["Hide Bag"] = Color3.fromRGB(150, 100, 50),
-    ["Leaf Pouch"] = Color3.fromRGB(100, 200, 100),
-    ["Crystal Pouch"] = Color3.fromRGB(120, 220, 255),
-}
-
-function Helper.getItemESPList()
-    local list = {}
-    for name, _ in pairs(Helper.ITEM_ESP_COLORS) do
-        table.insert(list, name)
-    end
-    table.sort(list)
-    return list
-end
-
--- Настройка Item ESP — event-driven, без лагов
--- config = { isEnabled = fn, getSelected = fn, getShowDist = fn, getMaxDist = fn }
-function Helper.setupItemESP(config)
-    local itemBillboards = {}
-    local tracked = {}
-
-    local function isSelected(name)
-        if not name then return false end
-        if not Helper.ITEM_ESP_COLORS[name] then return false end
-        local sel = config.getSelected()
-        if not sel or #sel == 0 then return false end
-        return table.find(sel, name) ~= nil
-    end
-
-    local function isItemAlive(model)
-        if not model or not model.Parent then return false end
-        if not model:IsDescendantOf(workspace) then return false end
-        local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-        if not pp or not pp.Parent then return false end
-        return true
-    end
-
-    local function destroyItemESP(model)
-        if itemBillboards[model] then
-            pcall(function() itemBillboards[model]:Destroy() end)
-            itemBillboards[model] = nil
-        end
-        tracked[model] = nil
-    end
-
-    local function createItemESP(model, name)
-        destroyItemESP(model)
-        local basePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-        if not basePart then return end
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "HerkleItemESP"
-        bb.Size = UDim2.new(0, 140, 0, 22)
-        bb.StudsOffset = Vector3.new(0, 3, 0)
-        bb.AlwaysOnTop = true
-        bb.ResetOnSpawn = false
-        local lb = Instance.new("TextLabel")
-        lb.Size = UDim2.new(1, 0, 1, 0)
-        lb.BackgroundTransparency = 1
-        lb.TextColor3 = Helper.ITEM_ESP_COLORS[name] or Color3.fromRGB(255,255,255)
-        lb.TextStrokeTransparency = 0
-        lb.TextStrokeColor3 = Color3.fromRGB(0,0,0)
-        lb.Font = Enum.Font.GothamBold
-        lb.TextSize = 14
-        lb.Text = name
-        lb.Parent = bb
-        bb.Parent = basePart
-        itemBillboards[model] = bb
-        tracked[model] = true
-    end
-
-    local function tryRegister(obj)
-        if not config.isEnabled() then return end
-        if not obj or not obj:IsA("Model") then return end
-        if tracked[obj] then return end
-        if not isSelected(obj.Name) then return end
-        if not isItemAlive(obj) then return end
-        createItemESP(obj, obj.Name)
-    end
-
-    local function clearAll()
-        for m, _ in pairs(itemBillboards) do
-            pcall(function() itemBillboards[m]:Destroy() end)
-        end
-        itemBillboards = {}
-        tracked = {}
-    end
-
-    local function scanAll()
-        -- Ищем везде: Items, DroppedItems и вообще по workspace
-        local containers = {
-            workspace:FindFirstChild("Items"),
-            workspace:FindFirstChild("DroppedItems"),
-            workspace,
-        }
-        for _, container in ipairs(containers) do
-            if container then
-                for _, obj in ipairs(container:GetChildren()) do
-                    if obj:IsA("Model") and isSelected(obj.Name) and isItemAlive(obj) then
-                        createItemESP(obj, obj.Name)
-                    end
-                end
-            end
-        end
-    end
-
-    Helper.trackConnection(workspace.DescendantAdded:Connect(function(desc)
-        if desc:IsA("Model") then task.defer(function() tryRegister(desc) end) end
-    end))
-    Helper.trackConnection(workspace.DescendantRemoving:Connect(function(desc)
-        if desc:IsA("Model") and tracked[desc] then destroyItemESP(desc) end
-    end))
-
-    Helper.trackConnection(RunService.RenderStepped:Connect(function()
-        if not config.isEnabled() then
-            for _, bb in pairs(itemBillboards) do pcall(function() bb.Enabled = false end) end
-            return
-        end
-        local myRoot = Helper.getRoot()
-        if not myRoot then return end
-        local showDist = config.getShowDist and config.getShowDist() or false
-        local maxDist = (config.getMaxDist and config.getMaxDist()) or 500
-        local toRemove = nil
-        for model, bb in pairs(itemBillboards) do
-            if not isItemAlive(model) then
-                if not toRemove then toRemove = {} end
-                toRemove[#toRemove+1] = model
-            else
-                local basePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-                if basePart then
-                    local dist = (basePart.Position - myRoot.Position).Magnitude
-                    if dist <= maxDist then
-                        pcall(function()
-                            if bb.Parent ~= basePart then bb.Parent = basePart end
-                            bb.Enabled = true
-                            local lb = bb:FindFirstChildOfClass("TextLabel")
-                            if lb then
-                                local text = model.Name
-                                if showDist then text = text .. " | " .. math.floor(dist) .. "m" end
-                                lb.Text = text
-                                lb.TextColor3 = Helper.ITEM_ESP_COLORS[model.Name] or Color3.fromRGB(255,255,255)
-                            end
-                        end)
-                    else
-                        pcall(function() bb.Enabled = false end)
-                    end
-                end
-            end
-        end
-        if toRemove then
-            for _, m in ipairs(toRemove) do destroyItemESP(m) end
-        end
-    end))
-
-    return { scan = scanAll, clear = clearAll }
-end
-
--- ============================================================
 -- FPS BOOST
 -- ============================================================
 local _fpsBoostEnabled = false
@@ -453,7 +257,6 @@ function Helper.enableFPSBoost()
     local L = Lighting
     local T = workspace.Terrain
 
-    -- Lighting
     _fpsOrig.GlobalShadows = L.GlobalShadows
     _fpsOrig.FogEnd = L.FogEnd
     _fpsOrig.Brightness = L.Brightness
@@ -468,7 +271,6 @@ function Helper.enableFPSBoost()
         L.EnvironmentSpecularScale = 0
     end)
 
-    -- Post effects / Atmosphere / Clouds
     _fpsOrig.effects = {}
     for _, c in ipairs(L:GetChildren()) do
         if c:IsA("PostEffect") or c:IsA("Atmosphere") or c:IsA("Clouds") then
@@ -477,7 +279,6 @@ function Helper.enableFPSBoost()
         end
     end
 
-    -- Particles across workspace (ограничимся игроком и видимыми объектами)
     _fpsOrig.particles = {}
     for _, d in ipairs(workspace:GetDescendants()) do
         if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Smoke") or d:IsA("Fire") or d:IsA("Sparkles") then
@@ -488,7 +289,6 @@ function Helper.enableFPSBoost()
         end
     end
 
-    -- Terrain water
     pcall(function()
         _fpsOrig.WaterWaveSize = T.WaterWaveSize
         _fpsOrig.WaterWaveSpeed = T.WaterWaveSpeed
@@ -538,123 +338,6 @@ function Helper.disableFPSBoost()
 end
 
 function Helper.isFPSBoostEnabled() return _fpsBoostEnabled end
-
--- ============================================================
--- KILL FEED
--- ============================================================
-Helper.KILLFEED_FILE = "herkle_killfeed.txt"
-
-local _killFeedRunning = false
-local _killFeedLog = {}
-local _killFeedOnNew = nil
-
-local function _kfLoad()
-    _killFeedLog = {}
-    if readfile and isfile then
-        pcall(function()
-            if isfile(Helper.KILLFEED_FILE) then
-                local data = readfile(Helper.KILLFEED_FILE)
-                if data and #data > 0 then
-                    for line in data:gmatch("[^\r\n]+") do
-                        table.insert(_killFeedLog, line)
-                    end
-                end
-            end
-        end)
-    end
-    if #_killFeedLog > 500 then
-        local newLog = {}
-        for i = #_killFeedLog - 500 + 1, #_killFeedLog do
-            table.insert(newLog, _killFeedLog[i])
-        end
-        _killFeedLog = newLog
-    end
-end
-
-local function _kfWrite()
-    if writefile then
-        pcall(function()
-            writefile(Helper.KILLFEED_FILE, table.concat(_killFeedLog, "\n"))
-        end)
-    end
-end
-
-function Helper.startKillFeed(getEnabled, onNewLine)
-    _killFeedOnNew = onNewLine
-    if _killFeedRunning then return end
-    _killFeedRunning = true
-    _kfLoad()
-
-    local lastHealth = {}
-    local lastKnown = {}
-
-    task.spawn(function()
-        while _killFeedRunning do
-            if getEnabled() then
-                local playersFolder = workspace:FindFirstChild("Players")
-                if playersFolder then
-                    for _, pChar in ipairs(playersFolder:GetChildren()) do
-                        local h = pChar:FindFirstChildOfClass("Humanoid")
-                        local name = pChar.Name
-                        if h then
-                            local hp = h.Health
-                            local prevHp = lastHealth[name]
-                            if prevHp ~= nil and prevHp > 0 and hp <= 0 then
-                                local t = os.date("%H:%M:%S")
-                                local line = "[" .. t .. "] " .. name .. " died"
-                                table.insert(_killFeedLog, line)
-                                if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
-                                _kfWrite()
-                                if _killFeedOnNew then pcall(_killFeedOnNew, line) end
-                            end
-                            lastHealth[name] = hp
-                            lastKnown[name] = true
-                        else
-                            if lastKnown[name] then
-                                local t = os.date("%H:%M:%S")
-                                local line = "[" .. t .. "] " .. name .. " left / died"
-                                table.insert(_killFeedLog, line)
-                                if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
-                                _kfWrite()
-                                if _killFeedOnNew then pcall(_killFeedOnNew, line) end
-                                lastKnown[name] = nil
-                                lastHealth[name] = nil
-                            end
-                        end
-                    end
-                end
-
-                -- my health
-                local myHum = Helper.getHumanoid()
-                if myHum then
-                    local prevMe = lastHealth["__me"]
-                    if prevMe ~= nil and prevMe > 0 and myHum.Health <= 0 then
-                        local t = os.date("%H:%M:%S")
-                        local line = "[" .. t .. "] YOU died"
-                        table.insert(_killFeedLog, line)
-                        if #_killFeedLog > 500 then table.remove(_killFeedLog, 1) end
-                        _kfWrite()
-                        if _killFeedOnNew then pcall(_killFeedOnNew, line) end
-                    end
-                    lastHealth["__me"] = myHum.Health
-                end
-            end
-            task.wait(0.5)
-        end
-    end)
-end
-
-function Helper.stopKillFeed()
-    _killFeedRunning = false
-end
-function Helper.getKillFeedLog() return _killFeedLog end
-function Helper.clearKillFeed()
-    _killFeedLog = {}
-    _kfWrite()
-end
-function Helper.getKillFeedText()
-    return table.concat(_killFeedLog, "\n")
-end
 
 -- ============================================================
 -- FOOD PRIORITY
