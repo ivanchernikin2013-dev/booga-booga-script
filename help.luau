@@ -1,5 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v2.0
+-- help.luau — Herkle Hub Helper Library v2.1
 -- GitHub: https://github.com/ivanchernikin2013-dev/booga-booga-script
 -- ============================================================
 -- Использование:
@@ -19,7 +19,7 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "2.0.0"
+Helper.Version = "2.1.0"
 
 -- ============================================================
 -- MODULE REFERENCES
@@ -38,14 +38,12 @@ pcall(function()
 end)
 Helper.Clock = Clock
 
--- Remote references
 local Events = rs:FindFirstChild("Events")
 Helper.Events = Events
 Helper.RemoteSwingTool = Events and Events:FindFirstChild("SwingTool")
 Helper.RemoteEquipTool = Events and Events:FindFirstChild("EquipTool")
 Helper.RemotePickup = Events and Events:FindFirstChild("Pickup")
 
--- WindUI reference
 local _windUI = nil
 function Helper.init(windUI) _windUI = windUI end
 
@@ -230,93 +228,98 @@ function Helper.notify(title, content, duration)
 end
 
 -- ============================================================
--- THEMES (116 тем)
+-- THEMES (116 тем) — ключ = отображаемое имя, значение = hex или builtin
 -- ============================================================
 Helper.THEMES = {
+    -- Built-in WindUI themes
     ["Dark"]="Dark",["Light"]="Light",["Rose"]="Rose",["Plant"]="Plant",
     ["Red"]="Red",["Indigo"]="Indigo",["Sky"]="Sky",["Violet"]="Violet",
     ["Amber"]="Amber",["Emerald"]="Emerald",["Midnight"]="Midnight",
     ["Crimson"]="Crimson",["MonokaiPro"]="Monokai Pro",
     ["CottonCandy"]="Cotton Candy",["Mellowsi"]="Mellowsi",["Rainbow"]="Rainbow",
 
+    -- NEON
     ["Neon Pink"]="#FF10F0",["Neon Cyan"]="#00F0FF",["Neon Green"]="#39FF14",
     ["Neon Orange"]="#FF5F1F",["Neon Yellow"]="#FFFF33",["Neon Purple"]="#BC13FE",
     ["Cyber Blue"]="#00BFFF",["Cyber Red"]="#FF003C",["Cyber Teal"]="#00FFC8",
     ["Cyber Lime"]="#CCFF00",
 
+    -- GREEN
     ["Toxic Green"]="#AFFF00",["Spring Green"]="#00FF7F",["Mint"]="#98FF98",
     ["Mint Chocolate"]="#3EB489",["Forest"]="#228B22",["Emerald City"]="#50C878",
     ["Jade"]="#00A86B",["Olive"]="#808000",["Lime Zest"]="#BFFF00",
     ["Seafoam"]="#93E9BE",["Kiwi"]="#8EE53F",["Fern"]="#4F7942",
     ["Pistachio"]="#93C572",["Sage"]="#9CAF88",["Hunter Green"]="#355E3B",
 
+    -- BLUE
     ["Deep Ocean"]="#0066CC",["Ocean Breeze"]="#4FC3F7",["Aqua Marine"]="#7FFFD4",
     ["Turquoise"]="#40E0D0",["Sky Blue"]="#87CEEB",["Baby Blue"]="#89CFF0",
     ["Powder Blue"]="#B0E0E6",["Periwinkle"]="#CCCCFF",["Sapphire"]="#0F52BA",
     ["Cobalt"]="#0047AB",["Electric Blue"]="#7DF9FF",["Ice Blue"]="#99FFFF",
     ["Steel Blue"]="#4682B4",["Denim"]="#1560BD",["Azure"]="#007FFF",
 
+    -- PURPLE
     ["Lavender"]="#E6E6FA",["Lilac"]="#C8A2C8",["Orchid"]="#DA70D6",
     ["Plum"]="#8E4585",["Amethyst"]="#9966CC",["Grape"]="#6F2DA8",
     ["Violet Dream"]="#7F00FF",["Royal Purple"]="#7851A9",["Indigo Night"]="#4B0082",
     ["Magenta Punch"]="#FF00AA",
 
+    -- RED / PINK
     ["Hot Pink"]="#FF69B4",["Crimson Red"]="#DC143C",["Scarlet"]="#FF2400",
     ["Cherry Red"]="#D2042D",["Blood Red"]="#8A0303",["Ruby"]="#E0115F",
     ["Wine"]="#722F37",["Burgundy"]="#800020",["Maroon"]="#800000",
     ["Rose Quartz"]="#F7CAC9",["Sakura"]="#FFB7C5",["Blossom"]="#FFB2D0",
     ["Bubblegum"]="#FFC1CC",["Peach Fuzz"]="#FFBE98",["Salmon"]="#FA8072",
 
+    -- ORANGE / YELLOW
     ["Coral"]="#FF7F50",["Peach"]="#FFCBA4",["Apricot"]="#FBCEB1",
     ["Tangerine"]="#F28500",["Orange Crush"]="#FF6600",["Pumpkin"]="#FF7518",
     ["Gold"]="#FFD700",["Honey"]="#F0C040",["Mustard"]="#FFDB58",
     ["Sunshine"]="#FFFD37",
 
+    -- BROWN / EARTH
     ["Rose Gold"]="#B76E79",["Copper"]="#B87333",["Bronze"]="#CD7F32",
     ["Chocolate"]="#7B3F00",["Coffee"]="#6F4E37",["Mocha"]="#967969",
     ["Taupe"]="#483C32",["Sand"]="#C2B280",["Tan"]="#D2B48C",
     ["Terracotta"]="#E2725B",
 
+    -- GREY / NEUTRAL
     ["Slate"]="#708090",["Charcoal"]="#36454F",["Onyx"]="#353839",
     ["Obsidian"]="#3B3B3B",["Gunmetal"]="#2A3439",["Shadow"]="#1C1C1C",
     ["Storm"]="#4F666A",["Ash"]="#B2BEB5",["Silver"]="#C0C0C0",
     ["Platinum"]="#E5E4E2",
 
+    -- SPECIAL
     ["Cream"]="#FFFDD0",["Ivory"]="#FFFFF0",["Pearl"]="#EAE0C8",
     ["Champagne"]="#F7E7CE",["Beige"]="#F5F5DC",["Fog"]="#D3D3D3",
     ["Crystal"]="#A8E6CF",["Aurora"]="#7BDFF2",["Galaxy"]="#5C2E91",
     ["Sunset"]="#FF6B35",
 }
 
+-- Возвращает отсортированный список НАЗВАНИЙ тем (ключей)
 function Helper.getThemeList()
     local list = {}
-    for _, display in pairs(Helper.THEMES) do
-        table.insert(list, display)
+    for key, _ in pairs(Helper.THEMES) do
+        table.insert(list, key)
     end
     table.sort(list)
     return list
 end
 
-function Helper.getThemeKey(displayName)
-    for key, display in pairs(Helper.THEMES) do
-        if display == displayName then return key end
-    end
-    return "Dark"
-end
-
+-- Применяет тему по её названию
 function Helper.applyTheme(displayName)
     if not _windUI then return false end
-    local key = Helper.getThemeKey(displayName)
-    if not key then return false end
+    local value = Helper.THEMES[displayName]
+    if not value then return false end
     pcall(function()
-        if key:sub(1, 1) == "#" then
-            local color = Color3.fromHex(key)
+        if value:sub(1, 1) == "#" then
+            local color = Color3.fromHex(value)
             _windUI:SetTheme({
                 Accent = color, Button = color, Toggle = color,
                 Slider = color, Dropdown = color, Tab = color,
             })
         else
-            _windUI:SetTheme(key)
+            _windUI:SetTheme(value)
         end
     end)
     return true
@@ -1073,7 +1076,7 @@ end
 -- ============================================================
 -- AUTO HEAL BURST
 -- ============================================================
-function Helper.startAutoHeal(getState, packetsRef)
+function Helper.startAutoHeal(getState)
     local eating = false
     local S = getState
     task.spawn(function()
@@ -1093,9 +1096,19 @@ function Helper.startAutoHeal(getState, packetsRef)
                                 eating = false
                                 break
                             end
-                            local slot = Helper.findBestFoodSlot()
-                            if not slot then break end
-                            Helper.eatFood(slot)
+                            -- Ест ТОЛЬКО Bloodfruit
+                            local list = Helper.getInventoryList()
+                            local bloodSlot = nil
+                            if list then
+                                for _, child in ipairs(list:GetChildren()) do
+                                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                                        bloodSlot = child
+                                        break
+                                    end
+                                end
+                            end
+                            if not bloodSlot then break end
+                            Helper.eatFood(bloodSlot)
                             task.wait(S().autoheal_eat_delay)
                         end
                         task.wait(S().autoheal_burst_wait)
