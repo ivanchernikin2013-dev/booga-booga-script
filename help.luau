@@ -1,5 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v3.3
+-- help.luau — Herkle Hub Helper Library v3.4
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -13,8 +13,9 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "3.3.0"
+Helper.Version = "3.4.0"
 
+-- Modules
 local packets
 pcall(function() packets = require(rs.Modules.Packets) end)
 Helper.packets = packets
@@ -123,6 +124,18 @@ function Helper.findSlotByName(itemName)
         end
     end
     return nil
+end
+function Helper.getInventorySnapshot()
+    local list = Helper.getInventoryList()
+    if not list then return {}, {} end
+    local byLayout, byName = {}, {}
+    for _, child in ipairs(list:GetChildren()) do
+        if child:IsA("GuiObject") then
+            byLayout[child.LayoutOrder] = child.Name
+            if not byName[child.Name] then byName[child.Name] = child.LayoutOrder end
+        end
+    end
+    return byLayout, byName
 end
 
 -- Character
@@ -519,7 +532,7 @@ function Helper.isResourceAccessible(rootPos, targetPos, targetObj)
     return true
 end
 
--- Bow aimbot helpers
+-- Bow aimbot
 function Helper.isBowEquipped()
     local c = plr.Character
     local tools = c and c:FindFirstChild("Tools")
@@ -674,45 +687,21 @@ function Helper.disableFullbright()
 end
 
 -- ============================================================
--- AUTO HEAL v3.3 — фикс задержки (без проверки HP в пачке)
+-- AUTO HEAL v3.4 — простая логика + fallback + любую еду
 -- ============================================================
 function Helper.startAutoHeal(getState)
     local eating = false
     local S = getState
 
-    local function readHP()
-        local ui = Helper.getHP()
-        local maxHP = Helper.getMaxHP()
-        if ui and ui > 0 then return ui, maxHP end
-        local hum = Helper.getHPFromHumanoid()
-        return hum or 0, maxHP
-    end
-
-    local function findFoodSlot()
-        local list = Helper.getInventoryList()
-        if not list then return nil end
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
-                return child
-            end
-        end
-        local best, bestScore = nil, -1
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("ImageLabel") then
-                local score = Helper.FOOD_PRIORITY[child.Name]
-                if score and score > bestScore then
-                    bestScore = score
-                    best = child
-                end
-            end
-        end
-        return best
-    end
-
     task.spawn(function()
         while true do
             if S().autoheal then
-                local hp, maxHP = readHP()
+                local hp = Helper.getHP()
+                if not hp or hp <= 0 then
+                    hp = Helper.getHPFromHumanoid()
+                end
+                local maxHP = Helper.getMaxHP()
+
                 if hp and hp > 0 and maxHP > 0 then
                     local hpPct = (hp / maxHP) * 100
                     local eatBelow = tonumber(S().autoheal_eat_below) or 55
@@ -725,27 +714,36 @@ function Helper.startAutoHeal(getState)
                     if hpPct >= eatUntil then eating = false end
 
                     if eating then
-                        -- ОДНА проверка HP перед пачкой
-                        local curHP, curMax = readHP()
-                        local curPct = (curMax > 0) and ((curHP / curMax) * 100) or 0
-                        if curPct >= eatUntil then
-                            eating = false
-                        else
-                            -- Пачка еды БЕЗ проверки HP внутри
-                            for i = 1, burst do
-                                local slot = findFoodSlot()
-                                if not slot then break end
-                                Helper.eatFood(slot)
-                                if eatDelay > 0 then
-                                    -- Точная задержка через Heartbeat
-                                    local target = tick() + eatDelay
-                                    while tick() < target do
-                                        RunService.Heartbeat:Wait()
+                        for i = 1, burst do
+                            local list = Helper.getInventoryList()
+                            if not list then break end
+
+                            local slot = nil
+                            for _, child in ipairs(list:GetChildren()) do
+                                if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                                    slot = child
+                                    break
+                                end
+                            end
+
+                            if not slot then
+                                local bestScore = -1
+                                for _, child in ipairs(list:GetChildren()) do
+                                    if child:IsA("ImageLabel") then
+                                        local score = Helper.FOOD_PRIORITY[child.Name]
+                                        if score and score > bestScore then
+                                            bestScore = score
+                                            slot = child
+                                        end
                                     end
                                 end
                             end
-                            task.wait(burstWait)
+
+                            if not slot then break end
+                            Helper.eatFood(slot)
+                            task.wait(eatDelay)
                         end
+                        task.wait(burstWait)
                     else
                         task.wait(0.05)
                     end
