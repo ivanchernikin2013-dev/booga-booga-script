@@ -1,5 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v3.4
+-- help.luau — Herkle Hub Helper Library v3.1
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -13,9 +13,11 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "3.4.0"
+Helper.Version = "3.1.0"
 
--- Modules
+-- ============================================================
+-- MODULES
+-- ============================================================
 local packets
 pcall(function() packets = require(rs.Modules.Packets) end)
 Helper.packets = packets
@@ -37,7 +39,9 @@ Helper.RemotePickup = Events and Events:FindFirstChild("Pickup")
 local _windUI = nil
 function Helper.init(windUI) _windUI = windUI end
 
--- Cleanup
+-- ============================================================
+-- CLEANUP
+-- ============================================================
 Helper._connections = {}
 Helper._cleanupFuncs = {}
 function Helper.trackConnection(conn)
@@ -67,7 +71,9 @@ function Helper.runCleanup()
     if Helper.disableFPSBoost then pcall(Helper.disableFPSBoost) end
 end
 
+-- ============================================================
 -- HP
+-- ============================================================
 local _hpLabelCache = nil
 function Helper.getHealthValueLabel()
     if _hpLabelCache and _hpLabelCache.Parent then return _hpLabelCache end
@@ -107,7 +113,9 @@ function Helper.getHPPercent()
     return (hp / max) * 100
 end
 
--- Inventory
+-- ============================================================
+-- INVENTORY
+-- ============================================================
 function Helper.getInventoryList()
     local pg = plr:FindFirstChild("PlayerGui")
     local mg = pg and pg:FindFirstChild("MainGui")
@@ -138,7 +146,9 @@ function Helper.getInventorySnapshot()
     return byLayout, byName
 end
 
--- Character
+-- ============================================================
+-- CHARACTER
+-- ============================================================
 function Helper.getRoot()
     local c = plr.Character
     return c and c:FindFirstChild("HumanoidRootPart")
@@ -175,7 +185,9 @@ function Helper.findEntityID(obj)
     return nil
 end
 
--- Notify
+-- ============================================================
+-- NOTIFY
+-- ============================================================
 function Helper.notify(title, content, duration)
     if _windUI then
         pcall(function()
@@ -186,7 +198,9 @@ function Helper.notify(title, content, duration)
     end
 end
 
--- Themes
+-- ============================================================
+-- THEMES (built-in WindUI)
+-- ============================================================
 Helper.BUILT_IN_THEMES = {
     "Dark", "Light", "Rose", "Plant", "Red", "Indigo",
     "Sky", "Violet", "Amber", "Emerald", "Midnight",
@@ -230,19 +244,25 @@ function Helper.applyAccentColor(colorOrHex)
     return true
 end
 
--- FPS Boost
+-- ============================================================
+-- FPS BOOST
+-- ============================================================
 local _fpsBoostEnabled = false
 local _fpsOrig = {}
+
 function Helper.enableFPSBoost()
     if _fpsBoostEnabled then return end
     _fpsBoostEnabled = true
+
     local L = Lighting
     local T = workspace.Terrain
+
     _fpsOrig.GlobalShadows = L.GlobalShadows
     _fpsOrig.FogEnd = L.FogEnd
     _fpsOrig.Brightness = L.Brightness
     _fpsOrig.EnvironmentDiffuseScale = L.EnvironmentDiffuseScale
     _fpsOrig.EnvironmentSpecularScale = L.EnvironmentSpecularScale
+
     L.GlobalShadows = false
     L.FogEnd = 100000
     L.Brightness = 2
@@ -250,6 +270,7 @@ function Helper.enableFPSBoost()
         L.EnvironmentDiffuseScale = 0
         L.EnvironmentSpecularScale = 0
     end)
+
     _fpsOrig.effects = {}
     for _, c in ipairs(L:GetChildren()) do
         if c:IsA("PostEffect") or c:IsA("Atmosphere") or c:IsA("Clouds") then
@@ -257,6 +278,7 @@ function Helper.enableFPSBoost()
             c.Parent = nil
         end
     end
+
     _fpsOrig.particles = {}
     for _, d in ipairs(workspace:GetDescendants()) do
         if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Smoke") or d:IsA("Fire") or d:IsA("Sparkles") then
@@ -266,6 +288,7 @@ function Helper.enableFPSBoost()
             end
         end
     end
+
     pcall(function()
         _fpsOrig.WaterWaveSize = T.WaterWaveSize
         _fpsOrig.WaterWaveSpeed = T.WaterWaveSpeed
@@ -277,11 +300,14 @@ function Helper.enableFPSBoost()
         T.WaterTransparency = 1
     end)
 end
+
 function Helper.disableFPSBoost()
     if not _fpsBoostEnabled then return end
     _fpsBoostEnabled = false
+
     local L = Lighting
     local T = workspace.Terrain
+
     if _fpsOrig.GlobalShadows ~= nil then L.GlobalShadows = _fpsOrig.GlobalShadows end
     if _fpsOrig.FogEnd ~= nil then L.FogEnd = _fpsOrig.FogEnd end
     if _fpsOrig.Brightness ~= nil then L.Brightness = _fpsOrig.Brightness end
@@ -289,6 +315,7 @@ function Helper.disableFPSBoost()
         if _fpsOrig.EnvironmentDiffuseScale ~= nil then L.EnvironmentDiffuseScale = _fpsOrig.EnvironmentDiffuseScale end
         if _fpsOrig.EnvironmentSpecularScale ~= nil then L.EnvironmentSpecularScale = _fpsOrig.EnvironmentSpecularScale end
     end)
+
     if _fpsOrig.effects then
         for c, parent in pairs(_fpsOrig.effects) do
             pcall(function() c.Parent = parent or L end)
@@ -299,17 +326,22 @@ function Helper.disableFPSBoost()
             pcall(function() d.Enabled = true end)
         end
     end
+
     pcall(function()
         if _fpsOrig.WaterWaveSize ~= nil then T.WaterWaveSize = _fpsOrig.WaterWaveSize end
         if _fpsOrig.WaterWaveSpeed ~= nil then T.WaterWaveSpeed = _fpsOrig.WaterWaveSpeed end
         if _fpsOrig.WaterReflectance ~= nil then T.WaterReflectance = _fpsOrig.WaterReflectance end
         if _fpsOrig.WaterTransparency ~= nil then T.WaterTransparency = _fpsOrig.WaterTransparency end
     end)
+
     _fpsOrig = {}
 end
+
 function Helper.isFPSBoostEnabled() return _fpsBoostEnabled end
 
--- Food priority
+-- ============================================================
+-- FOOD PRIORITY
+-- ============================================================
 Helper.FOOD_PRIORITY = {
     ["Bloodfruit"]=1000,
     ["Pie"]=500, ["Peeper Popsicle"]=480, ["Cooked Baracuda"]=460,
@@ -347,7 +379,9 @@ function Helper.eatFood(slot)
     return false
 end
 
--- Strike
+-- ============================================================
+-- STRIKE
+-- ============================================================
 function Helper.strikeTarget(targetPart)
     if not targetPart or not plr.Character then return end
     local c = plr.Character
@@ -376,7 +410,9 @@ function Helper.strikeTarget(targetPart)
     end
 end
 
--- Auto equip
+-- ============================================================
+-- AUTO EQUIP
+-- ============================================================
 local _equipTickCounter = 0
 local _lastEquipTicks = {}
 function Helper.autoEquipBestTool(targetCategory)
@@ -412,7 +448,9 @@ end
 function Helper.tickEquipCounter() _equipTickCounter = _equipTickCounter + 1 end
 function Helper.resetEquipThrottle(category) _lastEquipTicks[category] = -999 end
 
--- Velocity tracker
+-- ============================================================
+-- VELOCITY
+-- ============================================================
 Helper.trackedVelocities = {}
 function Helper.updateVelocityTracker(dt)
     if not dt or dt <= 0 then return end
@@ -452,7 +490,9 @@ function Helper.updateVelocityTracker(dt)
     end
 end
 
--- Gods
+-- ============================================================
+-- GOD DETECTION
+-- ============================================================
 Helper.KNOWN_GOD_NAMES = {
     ["Old God"]=true, ["Miserable God"]=true, ["Hateful God"]=true,
     ["Wealthy God"]=true, ["Lonely God"]=true, ["Unborn God"]=true,
@@ -504,7 +544,9 @@ function Helper.findGodTargets(range)
     return results
 end
 
--- Resources
+-- ============================================================
+-- RESOURCES
+-- ============================================================
 function Helper.forEachResource(callback)
     local resFolder = Workspace:FindFirstChild("Resources")
     if resFolder then
@@ -532,7 +574,9 @@ function Helper.isResourceAccessible(rootPos, targetPos, targetObj)
     return true
 end
 
--- Bow aimbot
+-- ============================================================
+-- BOW AIMBOT
+-- ============================================================
 function Helper.isBowEquipped()
     local c = plr.Character
     local tools = c and c:FindFirstChild("Tools")
@@ -650,7 +694,9 @@ function Helper.getAimbotTarget(cfgTarget, cfgPart, cfgRange, isFriendFn)
     return nearestPart, nearestAimPoint
 end
 
--- Fullbright
+-- ============================================================
+-- FULLBRIGHT
+-- ============================================================
 local _fbOriginal = nil
 function Helper.enableFullbright()
     if not _fbOriginal then
@@ -687,78 +733,55 @@ function Helper.disableFullbright()
 end
 
 -- ============================================================
--- AUTO HEAL v3.4 — простая логика + fallback + любую еду
+-- AUTO HEAL (Bloodfruit only)
 -- ============================================================
 function Helper.startAutoHeal(getState)
     local eating = false
     local S = getState
-
     task.spawn(function()
         while true do
             if S().autoheal then
                 local hp = Helper.getHP()
-                if not hp or hp <= 0 then
-                    hp = Helper.getHPFromHumanoid()
-                end
                 local maxHP = Helper.getMaxHP()
-
-                if hp and hp > 0 and maxHP > 0 then
+                if hp and maxHP > 0 then
                     local hpPct = (hp / maxHP) * 100
-                    local eatBelow = tonumber(S().autoheal_eat_below) or 55
-                    local eatUntil = tonumber(S().autoheal_eat_until) or 90
-                    local burst = math.max(1, math.floor(tonumber(S().autoheal_burst_size) or 6))
-                    local eatDelay = tonumber(S().autoheal_eat_delay) or 0.03
-                    local burstWait = tonumber(S().autoheal_burst_wait) or 0.2
-
-                    if hpPct < eatBelow then eating = true end
-                    if hpPct >= eatUntil then eating = false end
-
+                    if hpPct < S().autoheal_eat_below then eating = true end
+                    if hpPct >= S().autoheal_eat_until then eating = false end
                     if eating then
-                        for i = 1, burst do
+                        for i = 1, S().autoheal_burst_size do
+                            local curPct = Helper.getHPPercent()
+                            if curPct >= S().autoheal_eat_until then eating = false; break end
                             local list = Helper.getInventoryList()
-                            if not list then break end
-
-                            local slot = nil
-                            for _, child in ipairs(list:GetChildren()) do
-                                if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
-                                    slot = child
-                                    break
-                                end
-                            end
-
-                            if not slot then
-                                local bestScore = -1
+                            local bloodSlot = nil
+                            if list then
                                 for _, child in ipairs(list:GetChildren()) do
-                                    if child:IsA("ImageLabel") then
-                                        local score = Helper.FOOD_PRIORITY[child.Name]
-                                        if score and score > bestScore then
-                                            bestScore = score
-                                            slot = child
-                                        end
+                                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                                        bloodSlot = child; break
                                     end
                                 end
                             end
-
-                            if not slot then break end
-                            Helper.eatFood(slot)
-                            task.wait(eatDelay)
+                            if not bloodSlot then break end
+                            Helper.eatFood(bloodSlot)
+                            task.wait(S().autoheal_eat_delay)
                         end
-                        task.wait(burstWait)
+                        task.wait(S().autoheal_burst_wait)
                     else
-                        task.wait(0.05)
+                        task.wait(0.1)
                     end
                 else
-                    task.wait(0.1)
+                    task.wait(0.2)
                 end
             else
-                task.wait(0.1)
+                task.wait(0.2)
                 eating = false
             end
         end
     end)
 end
 
--- Drop / Pickup
+-- ============================================================
+-- DROP / PICKUP
+-- ============================================================
 function Helper.dropItem(itemName)
     if not itemName or itemName == "" then return false end
     local list = Helper.getInventoryList()
@@ -780,7 +803,9 @@ function Helper.pickup(entityid)
     end
 end
 
--- Baritone
+-- ============================================================
+-- BARITONE
+-- ============================================================
 Helper.Baritone = { Version = "1.4.0" }
 local _baritone = Helper.Baritone
 local BC = {
