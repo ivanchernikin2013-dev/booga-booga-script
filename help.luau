@@ -1,5 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v3.1
+-- help.luau — Herkle Hub Helper Library v3.2
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -13,7 +13,7 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "3.1.0"
+Helper.Version = "3.2.0"
 
 -- ============================================================
 -- MODULES
@@ -733,38 +733,78 @@ function Helper.disableFullbright()
 end
 
 -- ============================================================
--- AUTO HEAL (Bloodfruit only)
+-- AUTO HEAL — с фоллбеком на Humanoid + любую еду
 -- ============================================================
 function Helper.startAutoHeal(getState)
     local eating = false
     local S = getState
+
+    -- HP с фоллбеком
+    local function readHP()
+        local ui = Helper.getHP()
+        local hum = Helper.getHPFromHumanoid()
+        local maxHP = Helper.getMaxHP()
+        if not ui or ui <= 0 then
+            if hum and hum > 0 then
+                return hum, maxHP
+            end
+        end
+        return ui or 0, maxHP
+    end
+
+    -- Поиск еды: Bloodfruit в приоритете, иначе любая по FOOD_PRIORITY
+    local function findFoodSlot()
+        local list = Helper.getInventoryList()
+        if not list then return nil end
+        for _, child in ipairs(list:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                return child
+            end
+        end
+        local best, bestScore = nil, -1
+        for _, child in ipairs(list:GetChildren()) do
+            if child:IsA("ImageLabel") then
+                local score = Helper.FOOD_PRIORITY[child.Name]
+                if score and score > bestScore then
+                    bestScore = score
+                    best = child
+                end
+            end
+        end
+        return best
+    end
+
     task.spawn(function()
         while true do
             if S().autoheal then
-                local hp = Helper.getHP()
-                local maxHP = Helper.getMaxHP()
-                if hp and maxHP > 0 then
+                local hp, maxHP = readHP()
+                if hp and hp > 0 and maxHP > 0 then
                     local hpPct = (hp / maxHP) * 100
-                    if hpPct < S().autoheal_eat_below then eating = true end
-                    if hpPct >= S().autoheal_eat_until then eating = false end
+                    local eatBelow = S().autoheal_eat_below or 55
+                    local eatUntil = S().autoheal_eat_until or 90
+
+                    if hpPct < eatBelow then eating = true end
+                    if hpPct >= eatUntil then eating = false end
+
                     if eating then
-                        for i = 1, S().autoheal_burst_size do
-                            local curPct = Helper.getHPPercent()
-                            if curPct >= S().autoheal_eat_until then eating = false; break end
-                            local list = Helper.getInventoryList()
-                            local bloodSlot = nil
-                            if list then
-                                for _, child in ipairs(list:GetChildren()) do
-                                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
-                                        bloodSlot = child; break
-                                    end
-                                end
+                        local burst = S().autoheal_burst_size or 6
+                        local eatDelay = S().autoheal_eat_delay or 0.03
+                        local burstWait = S().autoheal_burst_wait or 0.2
+
+                        for i = 1, burst do
+                            local curHP, curMax = readHP()
+                            local curPct = (curMax > 0) and ((curHP / curMax) * 100) or 0
+                            if curPct >= eatUntil then
+                                eating = false
+                                break
                             end
-                            if not bloodSlot then break end
-                            Helper.eatFood(bloodSlot)
-                            task.wait(S().autoheal_eat_delay)
+                            local slot = findFoodSlot()
+                            if not slot then break end
+                            Helper.eatFood(slot)
+                            task.wait(eatDelay)
                         end
-                        task.wait(S().autoheal_burst_wait)
+
+                        task.wait(burstWait)
                     else
                         task.wait(0.1)
                     end
