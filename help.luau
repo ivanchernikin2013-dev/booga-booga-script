@@ -1,5 +1,5 @@
 -- ============================================================
--- help.luau — Herkle Hub Helper Library v3.1
+-- help.luau — Herkle Hub Helper Library v3.2
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -13,7 +13,7 @@ local plr = Players.LocalPlayer
 local rs = ReplicatedStorage
 
 local Helper = {}
-Helper.Version = "3.1.0"
+Helper.Version = "3.2.0"
 
 -- ============================================================
 -- MODULES
@@ -491,36 +491,50 @@ function Helper.updateVelocityTracker(dt)
 end
 
 -- ============================================================
--- GOD DETECTION
+-- GOD DETECTION — ТОЛЬКО 14 богов
 -- ============================================================
 Helper.KNOWN_GOD_NAMES = {
-    ["Old God"]=true, ["Miserable God"]=true, ["Hateful God"]=true,
-    ["Wealthy God"]=true, ["Lonely God"]=true, ["Unborn God"]=true,
-    ["Forgotten God"]=true, ["Odd God"]=true, ["Dark God"]=true,
-    ["Magical God"]=true, ["Infinity God"]=true, ["Strange God"]=true,
-    ["Ancient God"]=true, ["Sleeping God"]=true,
+    ["Magical God"]=true,
+    ["Strange God"]=true,
+    ["Dark God"]=true,
+    ["Soulless God"]=true,
+    ["Odd God"]=true,
+    ["Infinity God"]=true,
+    ["Old God"]=true,
+    ["Hateful God"]=true,
+    ["Miserable God"]=true,
+    ["Lonely God"]=true,
+    ["Wealthy God"]=true,
+    ["Sleeping God"]=true,
+    ["Ancient God"]=true,
+    ["Furious God"]=true,
 }
+
 Helper.GOD_COLORS = {
-    ["Old God"]=Color3.fromRGB(139,69,19), ["Miserable God"]=Color3.fromRGB(100,100,150),
-    ["Hateful God"]=Color3.fromRGB(255,0,0), ["Wealthy God"]=Color3.fromRGB(255,215,0),
-    ["Lonely God"]=Color3.fromRGB(200,200,255), ["Unborn God"]=Color3.fromRGB(150,200,150),
-    ["Forgotten God"]=Color3.fromRGB(100,50,100), ["Odd God"]=Color3.fromRGB(100,255,100),
-    ["Dark God"]=Color3.fromRGB(80,0,80), ["Magical God"]=Color3.fromRGB(200,100,255),
-    ["Infinity God"]=Color3.fromRGB(120,0,255), ["Strange God"]=Color3.fromRGB(0,255,200),
-    ["Ancient God"]=Color3.fromRGB(200,170,80), ["Sleeping God"]=Color3.fromRGB(100,150,220),
+    ["Magical God"]=Color3.fromRGB(200,100,255),
+    ["Strange God"]=Color3.fromRGB(0,255,200),
+    ["Dark God"]=Color3.fromRGB(80,0,80),
+    ["Soulless God"]=Color3.fromRGB(160,160,170),
+    ["Odd God"]=Color3.fromRGB(100,255,100),
+    ["Infinity God"]=Color3.fromRGB(120,0,255),
+    ["Old God"]=Color3.fromRGB(139,69,19),
+    ["Hateful God"]=Color3.fromRGB(255,0,0),
+    ["Miserable God"]=Color3.fromRGB(100,100,150),
+    ["Lonely God"]=Color3.fromRGB(200,200,255),
+    ["Wealthy God"]=Color3.fromRGB(255,215,0),
+    ["Sleeping God"]=Color3.fromRGB(100,150,220),
+    ["Ancient God"]=Color3.fromRGB(200,170,80),
+    ["Furious God"]=Color3.fromRGB(255,80,20),
 }
+
+-- Только по точному имени из списка. Никаких find("god").
 function Helper.isGodModel(obj)
     if not obj or not obj:IsA("Model") then return false end
     local name = obj.Name
     if not name or name == "" then return false end
-    if Helper.KNOWN_GOD_NAMES[name] then return true end
-    if name:lower():find("god", 1, true) then
-        local h = obj:FindFirstChildOfClass("Humanoid")
-        local base = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-        if h or base then return true end
-    end
-    return false
+    return Helper.KNOWN_GOD_NAMES[name] == true
 end
+
 function Helper.findGodTargets(range)
     local results = {}
     local myRoot = Helper.getRoot()
